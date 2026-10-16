@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+build/
+.expo/
+
+# Environment (keep .env.example, ignore real .env)
+.env
+.env.local
+
+# Transient uploads (SOS audio, local-dev fallback)
+backend/uploads/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local AI-tool sessions, crash dumps and private notes (never commit)
+.commandcode/
+command-code-session-*.html
+replay_pid*.log
+Calculation.txt
+*.local.txt
