@@ -51,6 +51,11 @@ Start Postgres + Redis (from the repo root):
 docker compose up -d postgres redis
 ```
 
+**Without Docker:** any PostgreSQL with the PostGIS extension works (for example PostgreSQL + PostGIS inside WSL Ubuntu:
+`sudo apt install postgresql postgis`, then create the `eagleeye` user/database used in `.env`). TimescaleDB is used
+when it is installed; without it, `locations` is created as a regular table and everything else behaves the same.
+Redis is optional for local development.
+
 Run the database migration (creates all tables from `docs/REVISED_SPEC.md` §4):
 
 ```bash

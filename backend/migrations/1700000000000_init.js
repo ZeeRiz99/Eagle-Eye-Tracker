@@ -5,7 +5,14 @@ exports.shorthands = undefined;
 exports.up = (pgm) => {
   pgm.createExtension('pgcrypto', { ifNotExists: true });
   pgm.createExtension('postgis', { ifNotExists: true });
-  pgm.createExtension('timescaledb', { ifNotExists: true });
+  // TimescaleDB is used when installed (Docker image); a plain Postgres + PostGIS dev setup still works without it.
+  pgm.sql(`DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'timescaledb') THEN
+      CREATE EXTENSION IF NOT EXISTS timescaledb;
+    ELSE
+      RAISE NOTICE 'timescaledb not available: locations stays a regular table';
+    END IF;
+  END $$;`);
 
   pgm.createTable('family_groups', {
     id: { type: 'uuid', primaryKey: true, default: pgm.func('gen_random_uuid()') },
@@ -85,7 +92,11 @@ exports.up = (pgm) => {
     battery_pct: { type: 'smallint' },
     recorded_at: { type: 'timestamptz', notNull: true },
   });
-  pgm.sql("SELECT create_hypertable('locations', 'recorded_at', if_not_exists => TRUE);");
+  pgm.sql(`DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb') THEN
+      PERFORM create_hypertable('locations', 'recorded_at', if_not_exists => TRUE);
+    END IF;
+  END $$;`);
   pgm.createIndex('locations', 'user_id');
   pgm.createIndex('locations', 'geom', { method: 'gist' });
 
