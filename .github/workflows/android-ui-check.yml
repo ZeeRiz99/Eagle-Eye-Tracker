@@ -79,6 +79,10 @@ jobs:
           npm ci
           npx tsc --noEmit
           npx expo prebuild --platform android --no-install
+          # test build only: the CI backend is plain http on the runner (10.0.2.2:4000); release builds block
+          # cleartext by default. A real deployment serves the API over https and needs no such change.
+          sed -i 's/<application /<application android:usesCleartextTraffic="true" /' android/app/src/main/AndroidManifest.xml
+          grep -c 'usesCleartextTraffic="true"' android/app/src/main/AndroidManifest.xml
           cd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=x86_64
 
       - name: Run on the emulator and take screenshots
