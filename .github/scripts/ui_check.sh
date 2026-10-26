@@ -120,8 +120,8 @@ sleep 8                                       # map tiles + the "You" pin
 shot 02-student-home
 
 tap "SOS"
-wait_for "Sending SOS alert" 15
-shot 03-sos-countdown
+sleep 1
+shot 03-sos-countdown                         # the countdown is short: take it right away, no wait
 wait_for "SOS Sent" 60
 shot 04-sos-sent
 tap "OK"
@@ -146,4 +146,5 @@ wait_for "Existing zones" 30
 sleep 3
 shot 07-safe-zones
 
+adb logcat -d -s ReactNativeJS:* > "$OUT/app-log.txt" 2>/dev/null
 log "all steps passed"

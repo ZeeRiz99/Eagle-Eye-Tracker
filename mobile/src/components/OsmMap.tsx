@@ -3,7 +3,7 @@
 // attribution and an identifying User-Agent, both set here; heavy production traffic should use a tile provider.
 // Dark mode darkens the tiles with a CSS filter. Also runs in Expo Go (react-native-webview ships with it).
 import React, { useEffect, useMemo, useRef } from 'react';
-import { StyleProp, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 
 export type LatLng = { latitude: number; longitude: number };
@@ -57,6 +57,11 @@ function html(dark: boolean): string {
       if (p.title) m.bindTooltip(p.title, { permanent: true, direction: 'top', offset: [0, -10] });
     });
   };
+  var tileErrors = 0;
+  map.eachLayer(function (l) { if (l.on) l.on('tileerror', function () {
+    if (++tileErrors === 1) window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'log', text: 'tile failed to load' }));
+  }); });
+  window.onerror = function (m) { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'log', text: String(m) })); };
   map.on('click', function (e) {
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'press', lat: e.latlng.lat, lng: e.latlng.lng }));
   });
@@ -85,23 +90,36 @@ export default function OsmMap({ center, delta, pins = [], dark = true, onPress,
       push();
     } else if (msg.type === 'press' && onPress) {
       onPress({ latitude: msg.lat, longitude: msg.lng });
+    } else if (msg.type === 'log') {
+      console.warn('[OsmMap]', msg.text);
     }
   };
 
+  // The wrapper takes the caller's size; a bare WebView inside a parent with alignItems: 'center' gets zero width
+  // (found by the CI screenshots: the student home map was blank).
   return (
-    <WebView
-      ref={web}
-      style={style}
-      source={source}
-      originWhitelist={['*']}
-      userAgent={USER_AGENT}
-      onMessage={onMessage}
-      onLoadStart={() => { ready.current = false; }}
-      javaScriptEnabled
-      scrollEnabled={false}
-      overScrollMode="never"
-      setBuiltInZoomControls={false}
-      accessibilityLabel="Map"
-    />
+    <View style={[styles.frame, style]}>
+      <WebView
+        ref={web}
+        style={styles.web}
+        source={source}
+        originWhitelist={['*']}
+        userAgent={USER_AGENT}
+        onMessage={onMessage}
+        onLoadStart={() => { ready.current = false; }}
+        javaScriptEnabled
+        scrollEnabled={false}
+        overScrollMode="never"
+        setBuiltInZoomControls={false}
+        accessibilityLabel="Map"
+        onError={(e) => console.warn('[OsmMap] load error', e.nativeEvent.description)}
+        onHttpError={(e) => console.warn('[OsmMap] http error', e.nativeEvent.statusCode)}
+      />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  frame: { alignSelf: 'stretch', overflow: 'hidden' },
+  web: { flex: 1, backgroundColor: 'transparent' },
+});
