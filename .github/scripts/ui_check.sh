@@ -111,8 +111,12 @@ shot 01-login
 # --- student
 login "student.demo@example.com"
 wait_for "SOS" 90
+tap "Location Not Shared"                    # start live location sharing (GPS is set to Karachi)
 adb emu geo fix 67.0011 24.8607 >/dev/null 2>&1
-sleep 6
+wait_for "Sharing Location" 30
+sleep 4
+adb emu geo fix 67.0013 24.8609 >/dev/null 2>&1    # a small move, so the watcher sends an update
+sleep 8                                       # map tiles + the "You" pin
 shot 02-student-home
 
 tap "SOS"

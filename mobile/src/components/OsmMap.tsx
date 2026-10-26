@@ -1,6 +1,7 @@
-// Free map: Leaflet + OpenStreetMap data inside a WebView. No API key and no billing account
-// (Google Maps on Android needs both). Tiles: CARTO basemaps, free for non-commercial use, attribution shown.
-// Also runs in Expo Go, since react-native-webview ships with it.
+// Free map: Leaflet + OpenStreetMap tiles inside a WebView. No API key and no billing account (Google Maps on
+// Android needs both; CARTO basemaps now need a key too, found by the CI screenshots). The OSM tile policy asks for
+// attribution and an identifying User-Agent, both set here; heavy production traffic should use a tile provider.
+// Dark mode darkens the tiles with a CSS filter. Also runs in Expo Go (react-native-webview ships with it).
 import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
@@ -24,21 +25,24 @@ export function zoomForDelta(delta: number): number {
 }
 
 const LEAFLET = 'https://unpkg.com/leaflet@1.9.4/dist';
+// OSM tile policy: identify the app (https://operations.osmfoundation.org/policies/tiles/)
+const USER_AGENT = 'EagleEyeTracker/1.0 (+https://github.com/ZeeRiz99/Eagle-Eye-Tracker)';
 
 function html(dark: boolean): string {
-  const tiles = dark ? 'dark_all' : 'light_all';
   const bg = dark ? '#0E1320' : '#E9ECF1';
+  const tileFilter = dark ? 'invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9)' : 'none';
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <link rel="stylesheet" href="${LEAFLET}/leaflet.css">
-<style>html,body,#map{height:100%;margin:0;background:${bg}}.leaflet-control-attribution{font-size:9px}</style>
+<style>html,body,#map{height:100%;margin:0;background:${bg}}.leaflet-control-attribution{font-size:9px}
+.leaflet-tile-pane{filter:${tileFilter}}</style>
 </head><body><div id="map"></div>
 <script src="${LEAFLET}/leaflet.js"></script>
 <script>
   var map = L.map('map', { zoomControl: false });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, subdomains: 'abcd',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
   var layer = L.layerGroup().addTo(map);
   var last = '';
@@ -90,6 +94,7 @@ export default function OsmMap({ center, delta, pins = [], dark = true, onPress,
       style={style}
       source={source}
       originWhitelist={['*']}
+      userAgent={USER_AGENT}
       onMessage={onMessage}
       onLoadStart={() => { ready.current = false; }}
       javaScriptEnabled
