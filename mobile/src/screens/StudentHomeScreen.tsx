@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Location from 'expo-location';
-import MapView, { Marker } from 'react-native-maps';
+import OsmMap from '../components/OsmMap';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch, uploadAudio } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -11,7 +11,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useCrashDetection } from '../hooks/useCrashDetection';
 import CrashConfirmationModal from '../components/CrashConfirmationModal';
 import type { RootStackParamList } from '../navigation/types';
-import { darkMapStyle, lightMapStyle, radius, spacing, Theme } from '../theme';
+import { radius, spacing, Theme } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentHome'>;
 
@@ -22,7 +22,6 @@ const KARACHI_REGION = { latitude: 24.8607, longitude: 67.0011, latitudeDelta: 0
 export default function StudentHomeScreen({ navigation }: Props) {
   const { theme, mode } = useTheme();
   const c = theme.colors;
-  const mapStyle = mode === 'dark' ? darkMapStyle : lightMapStyle;
   const [sharingLocation, setSharingLocation] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
@@ -147,18 +146,17 @@ export default function StudentHomeScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <MapView style={styles.map} region={mapRegion} customMapStyle={mapStyle}>
-        {currentLocation && (
-          <Marker
-            coordinate={{
-              latitude: currentLocation.coords.latitude,
-              longitude: currentLocation.coords.longitude,
-            }}
-            title="You"
-            pinColor={c.beacon}
-          />
-        )}
-      </MapView>
+      <OsmMap
+        style={styles.map}
+        center={mapRegion}
+        delta={mapRegion.latitudeDelta}
+        dark={mode === 'dark'}
+        pins={
+          currentLocation
+            ? [{ id: 'me', latitude: currentLocation.coords.latitude, longitude: currentLocation.coords.longitude, title: 'You', color: c.beacon }]
+            : []
+        }
+      />
 
       <TouchableOpacity style={[styles.shareToggle, sharingLocation && styles.shareToggleActive]} onPress={toggleShareLocation}>
         <View style={[styles.shareDot, sharingLocation && styles.shareDotActive]} />

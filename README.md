@@ -2,6 +2,30 @@
 
 Student safety app: real-time location sharing, manual SOS, crash detection, and geofencing for parents/guardians. See [`docs/REVISED_SPEC.md`](docs/REVISED_SPEC.md) for the full spec, schema, and Pakistan-market legal/consent design this build follows.
 
+## Screenshots
+
+Taken by the automated UI check ([`.github/workflows/android-ui-check.yml`](.github/workflows/android-ui-check.yml)):
+the full stack (Node.js API, PostgreSQL/PostGIS, Redis) runs on a GitHub runner, a demo family is created through the
+API, and a script drives the Android app on an emulator with the GPS set to Karachi.
+
+<p>
+  <img src="docs/screenshots/01-login.png" width="160" alt="Login">
+  <img src="docs/screenshots/02-student-map.png" width="160" alt="Student home: live location on the map">
+  <img src="docs/screenshots/03-sos-countdown.png" width="160" alt="SOS countdown with cancel">
+  <img src="docs/screenshots/04-sos-sent.png" width="160" alt="SOS sent">
+</p>
+<p>
+  <img src="docs/screenshots/05-parent-dashboard.png" width="160" alt="Parent family dashboard">
+  <img src="docs/screenshots/06-alert-history.png" width="160" alt="Alert history with the SOS location">
+  <img src="docs/screenshots/07-safe-zones.png" width="160" alt="Safe zones: tap the map to set a centre">
+</p>
+
+Student: login, live location shared on the map, SOS with a 10-second cancelable countdown, "SOS Sent".
+Parent: family dashboard, the SOS in alert history with the student's coordinates, safe zones.
+
+Maps are OpenStreetMap (Leaflet in a WebView, [`mobile/src/components/OsmMap.tsx`](mobile/src/components/OsmMap.tsx)):
+no API key and no billing account, and it also runs in Expo Go.
+
 ## Project Structure
 
 ```
@@ -86,7 +110,7 @@ All backend variables live in `backend/.env` (see `backend/.env.example` for a t
 | `S3_*` | No | S3-compatible object storage for audio/profile uploads |
 | `WHATSAPP_*` | No | WhatsApp Business API (BSP) template alerts |
 | `VOICE_API_*` | No | Outbound TTS voice-call escalation |
-| `MAPS_API_KEY` | No | Maps provider key for native builds |
+| `MAPS_API_KEY` | No | Not needed by the app (maps are OpenStreetMap); kept for a future server-side geocoding provider |
 
 Mobile: `mobile/.env` uses `EXPO_PUBLIC_API_BASE_URL` to point at the backend (see the troubleshooting section below).
 
@@ -165,10 +189,20 @@ Stubbed / next up (needs external accounts): upload of recorded audio to object 
 ## Accounts Needed Before Full Integration Testing
 
 - Firebase project (FCM push)
-- Google Maps or Mapbox API key
+- No maps key: the app uses OpenStreetMap tiles. Their usage policy is meant for light use, so a production launch
+  with many users should switch the tile URL in `OsmMap.tsx` to a paid or self-hosted tile provider
 - S3-compatible object storage (profile pictures, transient audio clips)
 - WhatsApp Business API access via a BSP (e.g. Infobip, Gupshup) + pre-approved SOS template
 - Telephony provider for outbound TTS voice calls (e.g. Twilio Voice, or a local provider)
+
+## Automated UI check
+
+Every push to `ci/android-ui-check` (or a manual run from the Actions tab) builds the release APK, starts the backend
+with PostGIS and Redis as service containers, creates a demo parent and student through the API
+([`.github/scripts/seed_demo.sh`](.github/scripts/seed_demo.sh)) and runs
+[`.github/scripts/ui_check.sh`](.github/scripts/ui_check.sh) on an Android 14 emulator. Screenshots of every step
+and the backend log are uploaded as the `ui-screenshots` artifact. The test build allows plain `http` because the
+backend runs on the runner at `http://10.0.2.2:4000`; a real deployment serves the API over `https`.
 
 ## Build Order
 

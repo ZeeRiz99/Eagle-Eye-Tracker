@@ -1,0 +1,107 @@
+# Eagle Eye Tracker: run the whole stack on a GitHub runner and screenshot the app on an emulator.
+# Backend (Node.js + PostGIS + Redis) runs on the runner; the emulator reaches it at 10.0.2.2:4000, which is the
+# app's default API address. A demo family (parent + student) is created through the API. The screenshots are
+# uploaded as the "ui-screenshots" artifact. Maps are OpenStreetMap (Leaflet in a WebView): no API key needed.
+name: Android UI check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/android-ui-check]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ui-check
+  cancel-in-progress: true
+
+jobs:
+  ui-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: eagle
+          POSTGRES_PASSWORD: eagle
+          POSTGRES_DB: eagle
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eagle"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgres://eagle:eagle@localhost:5432/eagle
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: development
+      PORT: "4000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Enable KVM (hardware acceleration for the emulator)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Backend - install, migrate, start
+        working-directory: backend
+        run: |
+          # throwaway secrets for this run only
+          export JWT_ACCESS_SECRET="$(openssl rand -hex 32)" JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+          export JWT_ACCESS_TTL=1h JWT_REFRESH_TTL=7d
+          npm ci
+          npm run migrate -- up
+          npm run build
+          nohup node dist/index.js > ../backend.log 2>&1 &
+          for i in $(seq 1 40); do curl -sf http://localhost:4000/health && break; sleep 2; done
+          curl -sf http://localhost:4000/health || { cat ../backend.log; exit 1; }
+
+      - name: Demo family (parent + student)
+        run: bash .github/scripts/seed_demo.sh
+
+      - name: Build the app (type check, then release APK, x86_64 for the emulator)
+        working-directory: mobile
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npx expo prebuild --platform android --no-install
+          # test build only: the CI backend is plain http on the runner (10.0.2.2:4000); release builds block
+          # cleartext by default. A real deployment serves the API over https and needs no such change.
+          sed -i 's/<application /<application android:usesCleartextTraffic="true" /' android/app/src/main/AndroidManifest.xml
+          grep -c 'usesCleartextTraffic="true"' android/app/src/main/AndroidManifest.xml
+          cd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=x86_64
+
+      - name: Run on the emulator and take screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash .github/scripts/ui_check.sh mobile/android/app/build/outputs/apk/release/app-release.apk ui-shots
+
+      - name: Upload screenshots and backend log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: |
+            ui-shots/
+            backend.log
+          if-no-files-found: warn
