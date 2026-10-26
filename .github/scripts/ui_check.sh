@@ -64,7 +64,14 @@ tap() {
   log "tapped '$1'"
 }
 
-hide_keyboard() { adb shell input keyevent 111 >/dev/null 2>&1; sleep 1; }
+# Back closes an open keyboard without leaving the screen (ESC does nothing in React Native). Only pressed while the
+# keyboard is up, so it never navigates back by accident.
+keyboard_up() { adb shell dumpsys input_method 2>/dev/null | grep -q "mInputShown=true"; }
+hide_keyboard() {
+  sleep 1
+  local n=0
+  while keyboard_up && [ $n -lt 3 ]; do adb shell input keyevent 4; sleep 1; n=$((n + 1)); done
+}
 
 type_into() {  # type_into <class:...#n> <text>
   tap "$1"
