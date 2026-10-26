@@ -1,7 +1,7 @@
 # Eagle Eye Tracker: run the whole stack on a GitHub runner and screenshot the app on an emulator.
 # Backend (Node.js + PostGIS + Redis) runs on the runner; the emulator reaches it at 10.0.2.2:4000, which is the
 # app's default API address. A demo family (parent + student) is created through the API. The screenshots are
-# uploaded as the "ui-screenshots" artifact. Optional secret GOOGLE_MAPS_API_KEY; without it the maps stay blank.
+# uploaded as the "ui-screenshots" artifact. Maps are OpenStreetMap (Leaflet in a WebView): no API key needed.
 name: Android UI check
 
 on:
@@ -73,13 +73,11 @@ jobs:
       - name: Demo family (parent + student)
         run: bash .github/scripts/seed_demo.sh
 
-      - name: Build the app (release APK, x86_64 for the emulator)
+      - name: Build the app (type check, then release APK, x86_64 for the emulator)
         working-directory: mobile
-        env:
-          MAPS_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           npm ci
-          node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync('app.json','utf8'));j.expo.android.config={googleMaps:{apiKey:process.env.MAPS_KEY||'CI_PLACEHOLDER_KEY'}};fs.writeFileSync('app.json',JSON.stringify(j,null,2))"
+          npx tsc --noEmit
           npx expo prebuild --platform android --no-install
           cd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=x86_64
 

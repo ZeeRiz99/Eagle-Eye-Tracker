@@ -10,13 +10,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, MapPressEvent } from 'react-native-maps';
+import OsmMap, { LatLng } from '../components/OsmMap';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import type { RootStackParamList } from '../navigation/types';
-import { darkMapStyle, lightMapStyle, radius, spacing, Theme } from '../theme';
+import { radius, spacing, Theme } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SafeZones'>;
 
@@ -37,7 +37,6 @@ export default function SafeZonesScreen({ navigation }: Props) {
   const { user } = useAuth();
   const { theme, mode } = useTheme();
   const c = theme.colors;
-  const mapStyle = mode === 'dark' ? darkMapStyle : lightMapStyle;
   const [zones, setZones] = useState<SafeZone[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,8 +63,8 @@ export default function SafeZonesScreen({ navigation }: Props) {
     loadZones();
   }, [loadZones]);
 
-  const onMapPress = (event: MapPressEvent) => {
-    setZoneCenter({ ...event.nativeEvent.coordinate, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+  const onMapPress = (coordinate: LatLng) => {
+    setZoneCenter({ ...coordinate, latitudeDelta: 0.02, longitudeDelta: 0.02 });
   };
 
   const createZone = async () => {
@@ -131,13 +130,14 @@ export default function SafeZonesScreen({ navigation }: Props) {
 
       <ScrollView>
         <Text style={styles.sectionLabel}>Tap the map to set a zone center, then fill in the details.</Text>
-        <MapView style={styles.map} region={zoneCenter} onPress={onMapPress} customMapStyle={mapStyle}>
-          <Marker
-            coordinate={{ latitude: zoneCenter.latitude, longitude: zoneCenter.longitude }}
-            pinColor={c.mint}
-            title={name.trim() || 'New zone'}
-          />
-        </MapView>
+        <OsmMap
+          style={styles.map}
+          center={zoneCenter}
+          delta={zoneCenter.latitudeDelta}
+          dark={mode === 'dark'}
+          onPress={onMapPress}
+          pins={[{ id: 'zone', latitude: zoneCenter.latitude, longitude: zoneCenter.longitude, title: name.trim() || 'New zone', color: c.mint }]}
+        />
 
         <TextInput
           style={styles.input}

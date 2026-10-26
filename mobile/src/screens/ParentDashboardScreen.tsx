@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import OsmMap from '../components/OsmMap';
 import * as Notifications from 'expo-notifications';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../api/client';
@@ -18,7 +18,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLocationSocket, LiveLocationEvent } from '../hooks/useLocationSocket';
 import { useNotificationTapHandler, extractEmergencyData, EmergencyNotificationData } from '../hooks/useNotificationTap';
 import type { RootStackParamList } from '../navigation/types';
-import { darkMapStyle, lightMapStyle, radius, spacing, Theme } from '../theme';
+import { radius, spacing, Theme } from '../theme';
 
 interface EmergencyAlert {
   id: string;
@@ -43,7 +43,6 @@ export default function ParentDashboardScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
   const { theme, mode, toggleTheme } = useTheme();
   const c = theme.colors;
-  const mapStyle = mode === 'dark' ? darkMapStyle : lightMapStyle;
 
   const [liveLocations, setLiveLocations] = useState<Record<string, LiveLocationEvent>>({});
   const [activeAlert, setActiveAlert] = useState<EmergencyAlert | null>(null);
@@ -160,26 +159,19 @@ export default function ParentDashboardScreen({ navigation }: Props) {
         </TouchableOpacity>
       </View>
 
-      <MapView style={styles.map} region={KARACHI_REGION} customMapStyle={mapStyle}>
-        {liveLocationList.map((loc) => {
-          const member = memberById(loc.userId);
-          const name = member?.name ?? 'Student';
-          return (
-            <Marker
-              key={loc.userId}
-              coordinate={{ latitude: loc.latitude, longitude: loc.longitude }}
-              title={name}
-              pinColor={c.beacon}
-            >
-              {member?.profile_picture_url ? (
-                <View style={styles.markerAvatar}>
-                  <Image source={{ uri: member.profile_picture_url }} style={styles.markerImage} />
-                </View>
-              ) : null}
-            </Marker>
-          );
-        })}
-      </MapView>
+      <OsmMap
+        style={styles.map}
+        center={KARACHI_REGION}
+        delta={KARACHI_REGION.latitudeDelta}
+        dark={mode === 'dark'}
+        pins={liveLocationList.map((loc) => ({
+          id: loc.userId,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          title: memberById(loc.userId)?.name ?? 'Student',
+          color: c.beacon,
+        }))}
+      />
 
       {liveLocationList.length === 0 ? (
         <View style={styles.emptyStateBox}>
